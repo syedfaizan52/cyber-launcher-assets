@@ -1,12 +1,12 @@
 name: Auto Generate Wallpapers JSON
 
 on:
+  workflow_dispatch: # Enables manual "Run workflow" button
   push:
     branches:
       - main
     paths-ignore:
       - 'wallpapers.json'
-      - '.github/**'
 
 permissions:
   contents: write
@@ -35,18 +35,14 @@ jobs:
           # Scan files in repository root
           for fname in sorted(os.listdir(".")):
               if fname.lower().endswith(valid_exts):
-                  # Clean ID
                   stem, _ = os.path.splitext(fname)
                   item_id = "".join(c if c.isalnum() else "_" for c in stem).strip("_").lower()
                   
-                  # Human-friendly readable title
                   clean_title = stem.replace("-", " ").replace("_", " ")
-                  # Remove trailing resolution tags like 1920 or ai generated
                   for tag in ["1920", "ai generated", "cropped"]:
                       clean_title = clean_title.replace(tag, "")
                   clean_title = " ".join(clean_title.split()).title()
 
-                  # URL encoded link (handles spaces and parenthesis)
                   encoded_name = urllib.parse.quote(fname)
                   url = f"{base_raw_url}{encoded_name}"
 
@@ -66,8 +62,8 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add wallpapers.json
           if git diff --staged --quiet; then
-            echo "No changes in wallpapers.json"
+            echo "No changes detected in wallpapers.json"
           else
-            git commit -m "chore: auto-update wallpapers.json"
+            git commit -m "chore: auto-generate wallpapers.json"
             git push
           fi
