@@ -1,0 +1,73 @@
+name: Auto Generate Wallpapers JSON
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'wallpapers.json'
+      - '.github/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate wallpapers.json
+        run: |
+          python3 -c '
+          import os, json, urllib.parse
+
+          repo_user = "syedfaizan52"
+          repo_name = "cyber-launcher-assets"
+          branch = "main"
+          base_raw_url = f"https://raw.githubusercontent.com/{repo_user}/{repo_name}/{branch}/"
+
+          valid_exts = (".jpg", ".jpeg", ".png", ".webp")
+          items = []
+
+          # Scan files in repository root
+          for fname in sorted(os.listdir(".")):
+              if fname.lower().endswith(valid_exts):
+                  # Clean ID
+                  stem, _ = os.path.splitext(fname)
+                  item_id = "".join(c if c.isalnum() else "_" for c in stem).strip("_").lower()
+                  
+                  # Human-friendly readable title
+                  clean_title = stem.replace("-", " ").replace("_", " ")
+                  # Remove trailing resolution tags like 1920 or ai generated
+                  for tag in ["1920", "ai generated", "cropped"]:
+                      clean_title = clean_title.replace(tag, "")
+                  clean_title = " ".join(clean_title.split()).title()
+
+                  # URL encoded link (handles spaces and parenthesis)
+                  encoded_name = urllib.parse.quote(fname)
+                  url = f"{base_raw_url}{encoded_name}"
+
+                  items.append({
+                      "id": item_id,
+                      "title": clean_title if clean_title else "Cyber Wallpaper",
+                      "url": url
+                  })
+
+          with open("wallpapers.json", "w", encoding="utf-8") as f:
+              json.dump(items, f, indent=2)
+          '
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add wallpapers.json
+          if git diff --staged --quiet; then
+            echo "No changes in wallpapers.json"
+          else
+            git commit -m "chore: auto-update wallpapers.json"
+            git push
+          fi
